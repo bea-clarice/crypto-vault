@@ -51,11 +51,9 @@ export const subscribeAccounts = (uid, onNext, onError) => {
   const ref = getUserCollection(uid);
   return onSnapshot(
     ref,
-    { includeMetadataChanges: true },
     (snapshot) => {
       const accounts = snapshot.docs
         .filter((d) => d.id !== MASTER_META_ID)
-        .filter((d) => !d.metadata.hasPendingWrites)
         .map((d) => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
