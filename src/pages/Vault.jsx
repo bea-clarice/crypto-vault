@@ -283,14 +283,12 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
           </div>
         ) : (
           <div className="accounts-grid">
-            {decryptError ? (
-              <div className="empty-state vault-error-state">
-                <div className="empty-icon"><Lock size={24} /></div>
-                <p className="empty-title">Vault locked</p>
-                <p className="empty-sub">{decryptError}</p>
-                <button className="btn-primary" type="button" onClick={onLock}>Lock Vault</button>
+            {decryptError && (
+              <div className="decrypt-warning">
+                ⚠️ {decryptError}
               </div>
-            ) : filtered.length === 0 ? (
+            )}
+            {filtered.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-icon"><ShieldCheck size={24} /></div>
                 <p className="empty-title">{search || category !== "All" ? "No results found" : "Your vault is empty"}</p>

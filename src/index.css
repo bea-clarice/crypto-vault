@@ -1068,3 +1068,15 @@ body::before {
   .profile-main { align-items: flex-start; }
   .profile-actions .btn-ghost { flex: 1; justify-content: center; }
 }
+
+.decrypt-warning {
+  grid-column: 1 / -1;
+  background: var(--danger-dim);
+  border: 1px solid rgba(255,77,109,0.25);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--danger);
+  line-height: 1.6;
+}
