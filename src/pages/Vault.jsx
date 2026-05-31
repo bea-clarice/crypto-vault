@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { LogOut, Plus, Search, ShieldCheck, Lock } from "lucide-react";
+import { Copy, LogOut, Plus, Search, ShieldCheck, Lock } from "lucide-react";
 import { encrypt, decrypt, hashMaster } from "../utils/crypto";
 import { addAccount, subscribeAccounts, updateAccount, deleteAccount, saveMasterHash } from "../utils/db";
 import AccountCard, { FIELD_LABELS, getAccountTitle } from "../components/AccountCard";
@@ -37,7 +37,6 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
-  const [selectedEmail, setSelectedEmail] = useState("");
   const [toast, setToast] = useState("");
 
   useEffect(() => {
@@ -185,12 +184,14 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
   }, [accounts, search, category, applicationFilter]);
 
   const totalEmailAccounts = accounts.filter((account) => account.category === "Email").length;
-  const selectedEmailDetails = useMemo(() => {
-    if (!selectedEmail) return [];
-    return accounts.filter((account) => {
-      return account.email === selectedEmail || account.authenticatedEmail === selectedEmail;
-    }).sort((a, b) => getAccountTitle(a).localeCompare(getAccountTitle(b)));
-  }, [accounts, selectedEmail]);
+  const emailDetails = useMemo(() => {
+    return emailOptions.map((email) => ({
+      email,
+      accounts: accounts
+        .filter((account) => account.email === email || account.authenticatedEmail === email)
+        .sort((a, b) => getAccountTitle(a).localeCompare(getAccountTitle(b))),
+    }));
+  }, [accounts, emailOptions]);
 
   return (
     <div className="app-shell">
@@ -245,7 +246,7 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
           </div>
           <div className="profile-side">
             <div className="profile-actions">
-              <button className="btn-ghost" type="button" onClick={() => { setSelectedEmail(""); setEmailModalOpen(true); }}>
+              <button className="btn-ghost" type="button" onClick={() => setEmailModalOpen(true)}>
                 All Emails
               </button>
               <button className="btn-ghost" type="button" onClick={onLock}>
@@ -352,45 +353,40 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
         <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setEmailModalOpen(false)}>
           <div className="modal detail-modal">
             <div className="modal-header">
-              <h3 className="modal-title">{selectedEmail ? selectedEmail : "All Emails"}</h3>
-              <button className="modal-close" onClick={() => { setEmailModalOpen(false); setSelectedEmail(""); }}>x</button>
+              <h3 className="modal-title">Email Information</h3>
+              <button className="modal-close" onClick={() => setEmailModalOpen(false)}>x</button>
             </div>
-            {!selectedEmail ? (
-              <div className="email-list">
-                {emailOptions.length === 0 ? (
-                  <p className="empty-sub">No email accounts saved yet.</p>
-                ) : (
-                  emailOptions.map((email) => (
-                    <button
-                      className="email-row"
-                      key={email}
-                      onClick={() => setSelectedEmail(email)}
-                    >
-                      {email}
-                    </button>
-                  ))
-                )}
-              </div>
-            ) : (
-              <div className="detail-section">
-                <span className="detail-kicker">Email Details</span>
-                {selectedEmailDetails.length === 0 ? (
-                  <p className="empty-sub">No connected account details for this email.</p>
-                ) : (
-                  <div className="detail-list">
-                    {selectedEmailDetails.map((account) => (
-                      <button className="detail-row" key={account.id} onClick={() => { setEmailModalOpen(false); setSelectedEmail(""); setSelectedAccount(account); }}>
-                        <span>{getAccountTitle(account)}</span>
-                        <small>{account.category}</small>
+            <div className="email-info-list">
+              {emailDetails.length === 0 ? (
+                <p className="empty-sub">No email accounts saved yet.</p>
+              ) : (
+                emailDetails.map(({ email, accounts: connectedAccounts }) => (
+                  <section className="email-info-card" key={email}>
+                    <div className="email-info-header">
+                      <div>
+                        <span className="detail-kicker">Email</span>
+                        <h4>{email}</h4>
+                      </div>
+                      <button className="detail-copy" type="button" onClick={() => handleCopy(email, "Email")} title="Copy email">
+                        <Copy size={13} />
                       </button>
-                    ))}
-                  </div>
-                )}
-                <div className="modal-footer">
-                  <button className="btn-ghost" type="button" onClick={() => setSelectedEmail("")}>Back to Emails</button>
-                </div>
-              </div>
-            )}
+                    </div>
+                    {connectedAccounts.length === 0 ? (
+                      <p className="empty-sub">No connected account details for this email.</p>
+                    ) : (
+                      <div className="detail-list">
+                        {connectedAccounts.map((account) => (
+                          <button className="detail-row" key={account.id} onClick={() => { setEmailModalOpen(false); setSelectedAccount(account); }}>
+                            <span>{getAccountTitle(account)}</span>
+                            <small>{account.category}</small>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -411,13 +407,23 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
                 .map(([key, label]) => (
                   <div className="detail-field" key={key}>
                     <span>{label}</span>
-                    <strong>{selectedAccount[key]}</strong>
+                    <div className="detail-value-row">
+                      <strong>{selectedAccount[key]}</strong>
+                      <button className="detail-copy" type="button" onClick={() => handleCopy(selectedAccount[key], label)} title={`Copy ${label}`}>
+                        <Copy size={13} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               {selectedAccount.notes && (
                 <div className="detail-field full">
                   <span>Notes</span>
-                  <strong>{selectedAccount.notes}</strong>
+                  <div className="detail-value-row">
+                    <strong>{selectedAccount.notes}</strong>
+                    <button className="detail-copy" type="button" onClick={() => handleCopy(selectedAccount.notes, "Notes")} title="Copy Notes">
+                      <Copy size={13} />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
