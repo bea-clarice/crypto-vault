@@ -75,6 +75,7 @@ export default function AccountModal({ account, emailOptions, onSave, onClose })
   const [form, setForm] = useState(emptyForm);
   const [visibleSecrets, setVisibleSecrets] = useState({});
   const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
 
   useEffect(() => {
     if (account) setForm({ ...emptyForm, ...account, category: account.category || "Email" });
@@ -85,9 +86,16 @@ export default function AccountModal({ account, emailOptions, onSave, onClose })
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setErr("");
     setSaving(true);
-    await onSave(form);
-    setSaving(false);
+    try {
+      await onSave(form);
+    } catch (error) {
+      console.error(error);
+      setErr(error?.message || "Could not save this account. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const renderField = ([key, label, placeholder, type = "text"]) => {
@@ -152,6 +160,8 @@ export default function AccountModal({ account, emailOptions, onSave, onClose })
           <h3 className="modal-title">{isEdit ? "Edit Account" : "Add Account"}</h3>
           <button type="button" className="modal-close" onClick={onClose}><X size={16} /></button>
         </div>
+
+        {err && <p className="error-msg">{err}</p>}
 
         <div className="modal-grid">
           <div className="input-wrap full">

@@ -8,8 +8,6 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
-  query,
-  orderBy,
 } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -38,11 +36,11 @@ export const addAccount = async (uid, data) => {
 
 export const getAccounts = async (uid) => {
   const ref = getUserCollection(uid);
-  const q = query(ref, orderBy("createdAt", "desc"));
-  const snapshot = await getDocs(q);
+  const snapshot = await getDocs(ref);
   return snapshot.docs
     .filter((d) => d.id !== MASTER_META_ID)
-    .map((d) => ({ id: d.id, ...d.data() }));
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 };
 
 export const updateAccount = async (uid, accountId, data) => {

@@ -106,6 +106,8 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
       await loadAccounts();
     } catch (e) {
       console.error(e);
+      setToast("Save failed");
+      throw new Error(getSaveErrorMessage(e));
     }
   };
 
@@ -330,4 +332,14 @@ function normalizeLegacyCategory(category) {
   if (category === "Streaming") return "Entertainment";
   if (category === "Work") return "Other";
   return CATEGORIES.includes(category) ? category : "Other";
+}
+
+function getSaveErrorMessage(error) {
+  if (error?.code === "permission-denied") {
+    return "Firestore blocked this save. Deploy the latest firestore.rules, then try again.";
+  }
+  if (error?.code === "unavailable") {
+    return "Firestore is unavailable right now. Check your connection and try again.";
+  }
+  return "Could not save this account. Please try again.";
 }
