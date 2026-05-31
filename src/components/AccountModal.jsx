@@ -42,6 +42,7 @@ const FIELD_SETS = {
   ],
   Education: [
     ["environmentName", "Environment name", "Environment name"],
+    ["authenticatedEmail", "Connected Google mail", "", "emailSelect"],
     ["username", "Username", "Username"],
     ["password", "Password", "Password", "password"],
   ],
