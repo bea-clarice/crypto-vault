@@ -16,6 +16,7 @@ export const FIELD_LABELS = {
   eshopping: "E-shopping",
   game: "Game",
   appName: "App name",
+  environmentName: "Environment name",
 };
 
 const SECRET_FIELDS = new Set(["password", "pin", "applicationPin", "cardPin"]);
@@ -28,7 +29,7 @@ export const getAccountTitle = (account) => {
   if (account.category === "Shopping") return account.eshopping || "Shopping account";
   if (account.category === "Gaming") return account.game || "Gaming account";
   if (account.category === "Other") return account.appName || "Other account";
-  if (account.category === "Education") return account.username || "Education account";
+  if (account.category === "Education") return account.environmentName || account.username || "Education account";
   if (account.category === "Entertainment") return account.appName || account.username || account.authenticatedEmail || "Entertainment account";
   return account.site || "Account";
 };

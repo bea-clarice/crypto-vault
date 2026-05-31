@@ -41,6 +41,7 @@ const FIELD_SETS = {
     ["password", "Password", "Password", "password"],
   ],
   Education: [
+    ["environmentName", "Environment name", "Environment name"],
     ["username", "Username", "Username"],
     ["password", "Password", "Password", "password"],
   ],
@@ -68,6 +69,7 @@ const emptyForm = {
   eshopping: "",
   game: "",
   appName: "",
+  environmentName: "",
   site: "",
 };
 

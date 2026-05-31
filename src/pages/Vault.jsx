@@ -23,6 +23,7 @@ const ENCRYPTED_FIELDS = [
   "eshopping",
   "game",
   "appName",
+  "environmentName",
   "notes",
 ];
 const APPLICATION_FILTER_FIELDS = ["mailProvider", "socialName", "eshopping", "game"];
