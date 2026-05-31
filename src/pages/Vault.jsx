@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { LogOut, Plus, Search, ShieldCheck, Lock } from "lucide-react";
 import { encrypt, decrypt, hashMaster } from "../utils/crypto";
 import { addAccount, subscribeAccounts, updateAccount, deleteAccount, saveMasterHash } from "../utils/db";
-import AccountCard, { getAccountTitle } from "../components/AccountCard";
+import AccountCard, { FIELD_LABELS, getAccountTitle } from "../components/AccountCard";
 import AccountModal from "../components/AccountModal";
 import Toast from "../components/Toast";
 
@@ -34,8 +34,10 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
   const [category, setCategory] = useState("All");
   const [modal, setModal] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [selectedAccount, setSelectedAccount] = useState(null);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [selectedEmail, setSelectedEmail] = useState("");
   const [toast, setToast] = useState("");
-  const [profileEmail, setProfileEmail] = useState("");
 
   useEffect(() => {
     setLoading(true);
@@ -175,6 +177,12 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
   }, [accounts, search, category]);
 
   const totalEmailAccounts = accounts.filter((account) => account.category === "Email").length;
+  const selectedEmailDetails = useMemo(() => {
+    if (!selectedEmail) return [];
+    return accounts.filter((account) => {
+      return account.email === selectedEmail || account.authenticatedEmail === selectedEmail;
+    });
+  }, [accounts, selectedEmail]);
 
   return (
     <div className="app-shell">
@@ -228,12 +236,10 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
             </div>
           </div>
           <div className="profile-side">
-            <label className="input-label">All email accounts</label>
-            <select className="select-field profile-select" value={profileEmail} onChange={(e) => setProfileEmail(e.target.value)}>
-              <option value="">Choose email account</option>
-              {emailOptions.map((email) => <option key={email} value={email}>{email}</option>)}
-            </select>
             <div className="profile-actions">
+              <button className="btn-ghost" type="button" onClick={() => setEmailModalOpen(true)}>
+                All Emails
+              </button>
               <button className="btn-ghost" type="button" onClick={onLock}>
                 <Lock size={14} />
                 Lock Vault
@@ -299,6 +305,7 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
                 <AccountCard
                   key={account.id}
                   account={account}
+                  onOpen={(acc) => setSelectedAccount(acc)}
                   onEdit={(acc) => setModal(acc)}
                   onDelete={(acc) => setDeleteTarget(acc)}
                   onCopy={handleCopy}
@@ -316,6 +323,84 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
           onSave={handleSave}
           onClose={() => setModal(null)}
         />
+      )}
+
+      {emailModalOpen && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setEmailModalOpen(false)}>
+          <div className="modal detail-modal">
+            <div className="modal-header">
+              <h3 className="modal-title">All Emails</h3>
+              <button className="modal-close" onClick={() => setEmailModalOpen(false)}>x</button>
+            </div>
+            <div className="email-list">
+              {emailOptions.length === 0 ? (
+                <p className="empty-sub">No email accounts saved yet.</p>
+              ) : (
+                emailOptions.map((email) => (
+                  <button
+                    className={`email-row ${selectedEmail === email ? "active" : ""}`}
+                    key={email}
+                    onClick={() => setSelectedEmail(email)}
+                  >
+                    {email}
+                  </button>
+                ))
+              )}
+            </div>
+            {selectedEmail && (
+              <div className="detail-section">
+                <span className="detail-kicker">Email Details</span>
+                <h4>{selectedEmail}</h4>
+                {selectedEmailDetails.length === 0 ? (
+                  <p className="empty-sub">No connected account details for this email.</p>
+                ) : (
+                  <div className="detail-list">
+                    {selectedEmailDetails.map((account) => (
+                      <button className="detail-row" key={account.id} onClick={() => setSelectedAccount(account)}>
+                        <span>{getAccountTitle(account)}</span>
+                        <small>{account.category}</small>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {selectedAccount && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setSelectedAccount(null)}>
+          <div className="modal detail-modal">
+            <div className="modal-header">
+              <div>
+                <span className="detail-kicker">{selectedAccount.category}</span>
+                <h3 className="modal-title">{getAccountTitle(selectedAccount)}</h3>
+              </div>
+              <button className="modal-close" onClick={() => setSelectedAccount(null)}>x</button>
+            </div>
+            <div className="detail-grid">
+              {Object.entries(FIELD_LABELS)
+                .filter(([key]) => selectedAccount[key])
+                .map(([key, label]) => (
+                  <div className="detail-field" key={key}>
+                    <span>{label}</span>
+                    <strong>{selectedAccount[key]}</strong>
+                  </div>
+                ))}
+              {selectedAccount.notes && (
+                <div className="detail-field full">
+                  <span>Notes</span>
+                  <strong>{selectedAccount.notes}</strong>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn-ghost" onClick={() => { setSelectedAccount(null); setModal(selectedAccount); }}>Edit</button>
+              <button className="btn-primary" onClick={() => setSelectedAccount(null)}>Done</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {deleteTarget && (

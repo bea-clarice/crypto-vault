@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Eye, EyeOff, Copy, Pencil, Trash2 } from "lucide-react";
 
-const FIELD_LABELS = {
+export const FIELD_LABELS = {
   mailProvider: "Which mail",
   email: "Email",
   socialName: "Social media",
@@ -19,6 +19,7 @@ const FIELD_LABELS = {
 };
 
 const SECRET_FIELDS = new Set(["password", "pin", "applicationPin", "cardPin"]);
+const NO_COPY_FIELDS = new Set(["mailProvider", "appName"]);
 
 export const getAccountTitle = (account) => {
   if (account.category === "Email") return account.email || account.mailProvider || "Email account";
@@ -32,7 +33,7 @@ export const getAccountTitle = (account) => {
   return account.site || "Account";
 };
 
-export default function AccountCard({ account, onEdit, onDelete, onCopy }) {
+export default function AccountCard({ account, onEdit, onDelete, onCopy, onOpen }) {
   const [shownSecrets, setShownSecrets] = useState({});
   const title = getAccountTitle(account);
 
@@ -56,7 +57,7 @@ export default function AccountCard({ account, onEdit, onDelete, onCopy }) {
   };
 
   return (
-    <div className="account-card">
+    <div className="account-card" role="button" tabIndex={0} onClick={() => onOpen(account)} onKeyDown={(e) => e.key === "Enter" && onOpen(account)}>
       <div className="card-top">
         <div style={{display:"flex",flexDirection:"column",gap:4,minWidth:0}}>
           <div className="card-site-wrap">
@@ -66,10 +67,10 @@ export default function AccountCard({ account, onEdit, onDelete, onCopy }) {
           <span className="card-category">{account.category}</span>
         </div>
         <div className="card-actions">
-          <button className="card-action" onClick={() => onEdit(account)} title="Edit">
+          <button className="card-action" onClick={(e) => { e.stopPropagation(); onEdit(account); }} title="Edit">
             <Pencil size={13} />
           </button>
-          <button className="card-action danger" onClick={() => onDelete(account)} title="Delete">
+          <button className="card-action danger" onClick={(e) => { e.stopPropagation(); onDelete(account); }} title="Delete">
             <Trash2 size={13} />
           </button>
         </div>
@@ -83,15 +84,20 @@ export default function AccountCard({ account, onEdit, onDelete, onCopy }) {
             {field.secret && (
               <button
                 className="copy-btn"
-                onClick={() => setShownSecrets((state) => ({ ...state, [field.key]: !state[field.key] }))}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShownSecrets((state) => ({ ...state, [field.key]: !state[field.key] }));
+                }}
                 title={shownSecrets[field.key] ? "Hide" : "Reveal"}
               >
                 {shownSecrets[field.key] ? <EyeOff size={12} /> : <Eye size={12} />}
               </button>
             )}
-            <button className="copy-btn" onClick={() => onCopy(field.value, field.label)} title={`Copy ${field.label}`}>
-              <Copy size={12} />
-            </button>
+            {!NO_COPY_FIELDS.has(field.key) && (
+              <button className="copy-btn" onClick={(e) => { e.stopPropagation(); onCopy(field.value, field.label); }} title={`Copy ${field.label}`}>
+                <Copy size={12} />
+              </button>
+            )}
           </div>
         </div>
       ))}
