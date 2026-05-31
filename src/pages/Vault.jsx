@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { LogOut, Plus, Search, ShieldCheck, Lock } from "lucide-react";
 import { encrypt, decrypt, hashMaster } from "../utils/crypto";
-import { addAccount, getAccounts, updateAccount, deleteAccount, saveMasterHash } from "../utils/db";
+import { addAccount, subscribeAccounts, updateAccount, deleteAccount, saveMasterHash } from "../utils/db";
 import AccountCard, { getAccountTitle } from "../components/AccountCard";
 import AccountModal from "../components/AccountModal";
 import Toast from "../components/Toast";
@@ -38,49 +38,67 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
   const [profileEmail, setProfileEmail] = useState("");
 
   useEffect(() => {
-    loadAccounts();
-  }, []);
-
-  const loadAccounts = async () => {
     setLoading(true);
     setDecryptError("");
-    try {
-      const raw = await getAccounts(user.uid);
-      let failed = false;
-      const decrypted = raw.map((account) => {
+
+    const unsubscribe = subscribeAccounts(
+      user.uid,
+      async (raw) => {
+        const { decrypted, failedCount } = decryptAccounts(raw, masterPassword);
+
+        if (needsHashMigration && failedCount === 0) {
+          await saveMasterHash(user.uid, hashMaster(masterPassword));
+        }
+
+        setAccounts(decrypted);
+        setDecryptError(
+          failedCount
+            ? `${failedCount} saved item${failedCount === 1 ? "" : "s"} could not be decrypted with this master password. Items that decrypt successfully are still shown.`
+            : ""
+        );
+        setLoading(false);
+      },
+      (error) => {
+        console.error(error);
+        setDecryptError(getLoadErrorMessage(error));
+        setLoading(false);
+      }
+    );
+
+    return unsubscribe;
+  }, [masterPassword, needsHashMigration, user.uid]);
+
+  const decryptAccounts = (raw, password) => {
+    let failedCount = 0;
+    const decrypted = raw.flatMap((account) => {
         const next = { ...account };
+        let accountFailed = false;
+
         ENCRYPTED_FIELDS.forEach((field) => {
           if (!account[field]) {
             next[field] = "";
             return;
           }
 
-          const value = decrypt(account[field], masterPassword);
-          if (value === null) failed = true;
+          const value = decrypt(account[field], password);
+          if (value === null) {
+            accountFailed = true;
+            return;
+          }
           next[field] = value || "";
         });
+
+        if (accountFailed) {
+          failedCount += 1;
+          return [];
+        }
+
         next.category = CATEGORIES.includes(next.category) ? next.category : normalizeLegacyCategory(next.category);
         next.site = account.site || "";
-        return next;
+        return [next];
       });
 
-      if (failed) {
-        setAccounts([]);
-        setDecryptError("That master password could not decrypt this vault. Lock the vault and enter the original master password used on your other device.");
-        return;
-      }
-
-      if (needsHashMigration) {
-        await saveMasterHash(user.uid, hashMaster(masterPassword));
-      }
-
-      setAccounts(decrypted);
-    } catch (e) {
-      console.error(e);
-      setDecryptError("Could not load your vault. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    return { decrypted, failedCount };
   };
 
   const handleSave = async (form) => {
@@ -95,25 +113,11 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
 
       payload.site = getAccountTitle({ ...form, category: payload.category });
 
-      const savedAccount = {
-        ...form,
-        category: payload.category,
-        site: payload.site,
-      };
-
       if (modal?.id) {
         await updateAccount(user.uid, modal.id, payload);
-        setDecryptError("");
-        setAccounts((current) =>
-          current.map((account) =>
-            account.id === modal.id ? { ...account, ...savedAccount, id: modal.id } : account
-          )
-        );
         setToast("Account updated");
       } else {
-        const docRef = await addAccount(user.uid, payload);
-        setDecryptError("");
-        setAccounts((current) => [{ ...savedAccount, id: docRef.id, createdAt: Date.now() }, ...current]);
+        await addAccount(user.uid, payload);
         setToast("Account added");
       }
       setModal(null);
@@ -129,7 +133,6 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
       await deleteAccount(user.uid, account.id);
       setDeleteTarget(null);
       setToast("Account deleted");
-      await loadAccounts();
     } catch (e) {
       console.error(e);
     }
@@ -355,4 +358,14 @@ function getSaveErrorMessage(error) {
     return "Firestore is unavailable right now. Check your connection and try again.";
   }
   return "Could not save this account. Please try again.";
+}
+
+function getLoadErrorMessage(error) {
+  if (error?.code === "permission-denied") {
+    return "Firestore blocked vault sync. Deploy the latest firestore.rules, then try again.";
+  }
+  if (error?.code === "unavailable") {
+    return "Vault sync is unavailable right now. Check your connection and try again.";
+  }
+  return "Could not sync your vault. Please try again.";
 }

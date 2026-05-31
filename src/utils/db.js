@@ -3,11 +3,13 @@ import {
   collection,
   addDoc,
   getDoc,
+  getDocFromServer,
   getDocs,
   doc,
   setDoc,
   updateDoc,
   deleteDoc,
+  onSnapshot,
 } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -31,7 +33,9 @@ export const saveMasterHash = async (uid, masterHash) => {
 
 export const addAccount = async (uid, data) => {
   const ref = getUserCollection(uid);
-  return await addDoc(ref, { ...data, createdAt: Date.now() });
+  const docRef = await addDoc(ref, { ...data, createdAt: Date.now() });
+  await getDocFromServer(docRef);
+  return docRef;
 };
 
 export const getAccounts = async (uid) => {
@@ -43,9 +47,28 @@ export const getAccounts = async (uid) => {
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 };
 
+export const subscribeAccounts = (uid, onNext, onError) => {
+  const ref = getUserCollection(uid);
+  return onSnapshot(
+    ref,
+    { includeMetadataChanges: true },
+    (snapshot) => {
+      const accounts = snapshot.docs
+        .filter((d) => d.id !== MASTER_META_ID)
+        .filter((d) => !d.metadata.hasPendingWrites)
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+      onNext(accounts);
+    },
+    onError
+  );
+};
+
 export const updateAccount = async (uid, accountId, data) => {
   const ref = doc(db, "users", uid, "accounts", accountId);
-  return await updateDoc(ref, { ...data, updatedAt: Date.now() });
+  await updateDoc(ref, { ...data, updatedAt: Date.now() });
+  await getDocFromServer(ref);
 };
 
 export const deleteAccount = async (uid, accountId) => {
