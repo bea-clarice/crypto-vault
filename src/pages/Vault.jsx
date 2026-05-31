@@ -147,13 +147,11 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
 
   const emailOptions = useMemo(() => {
     const emails = new Set();
-    if (user.email) emails.add(user.email);
     accounts.forEach((account) => {
       if (account.category === "Email" && account.email) emails.add(account.email);
-      if (account.authenticatedEmail) emails.add(account.authenticatedEmail);
     });
     return [...emails].sort((a, b) => a.localeCompare(b));
-  }, [accounts, user.email]);
+  }, [accounts]);
 
   const applicationOptions = useMemo(() => {
     const names = new Set();
@@ -184,14 +182,11 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
   }, [accounts, search, category, applicationFilter]);
 
   const totalEmailAccounts = accounts.filter((account) => account.category === "Email").length;
-  const emailDetails = useMemo(() => {
-    return emailOptions.map((email) => ({
-      email,
-      accounts: accounts
-        .filter((account) => account.email === email || account.authenticatedEmail === email)
-        .sort((a, b) => getAccountTitle(a).localeCompare(getAccountTitle(b))),
-    }));
-  }, [accounts, emailOptions]);
+  const emailAccounts = useMemo(() => {
+    return accounts
+      .filter((account) => account.category === "Email")
+      .sort((a, b) => getAccountTitle(a).localeCompare(getAccountTitle(b)));
+  }, [accounts]);
 
   return (
     <div className="app-shell">
@@ -357,33 +352,20 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
               <button className="modal-close" onClick={() => setEmailModalOpen(false)}>x</button>
             </div>
             <div className="email-info-list">
-              {emailDetails.length === 0 ? (
+              {emailAccounts.length === 0 ? (
                 <p className="empty-sub">No email accounts saved yet.</p>
               ) : (
-                emailDetails.map(({ email, accounts: connectedAccounts }) => (
-                  <section className="email-info-card" key={email}>
+                emailAccounts.map((account) => (
+                  <button className="email-info-card email-info-button" key={account.id} onClick={() => { setEmailModalOpen(false); setSelectedAccount(account); }}>
                     <div className="email-info-header">
                       <div>
                         <span className="detail-kicker">Email</span>
-                        <h4>{email}</h4>
+                        <h4>{account.email || getAccountTitle(account)}</h4>
+                        {account.mailProvider && <p className="email-provider">{account.mailProvider}</p>}
                       </div>
-                      <button className="detail-copy" type="button" onClick={() => handleCopy(email, "Email")} title="Copy email">
-                        <Copy size={13} />
-                      </button>
+                      <small>{account.category}</small>
                     </div>
-                    {connectedAccounts.length === 0 ? (
-                      <p className="empty-sub">No connected account details for this email.</p>
-                    ) : (
-                      <div className="detail-list">
-                        {connectedAccounts.map((account) => (
-                          <button className="detail-row" key={account.id} onClick={() => { setEmailModalOpen(false); setSelectedAccount(account); }}>
-                            <span>{getAccountTitle(account)}</span>
-                            <small>{account.category}</small>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </section>
+                  </button>
                 ))
               )}
             </div>

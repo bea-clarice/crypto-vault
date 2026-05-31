@@ -1075,6 +1075,21 @@ body::before {
   padding: 14px;
 }
 
+.email-info-button {
+  width: 100%;
+  color: var(--text);
+  font-family: var(--font-display);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.email-info-button:hover {
+  border-color: var(--border-hover);
+  background: var(--accent-dim);
+  transform: translateY(-1px);
+}
+
 .email-info-header {
   display: flex;
   align-items: flex-start;
@@ -1085,6 +1100,21 @@ body::before {
 .email-info-header h4 {
   font-size: 1rem;
   overflow-wrap: anywhere;
+}
+
+.email-info-header small,
+.email-provider {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.email-provider {
+  margin-top: 4px;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .email-row,
