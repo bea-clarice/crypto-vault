@@ -8,6 +8,7 @@ import Vault from "./pages/Vault";
 export default function App() {
   const { user, loading, login, logout } = useAuth();
   const [masterPassword, setMasterPassword] = useState(null);
+  const [unlockOptions, setUnlockOptions] = useState({});
 
   if (loading) {
     return (
@@ -27,7 +28,10 @@ export default function App() {
     return (
       <MasterPassword
         user={user}
-        onUnlock={(mp) => setMasterPassword(mp)}
+        onUnlock={(mp, options = {}) => {
+          setUnlockOptions(options);
+          setMasterPassword(mp);
+        }}
         onLogout={logout}
       />
     );
@@ -37,8 +41,9 @@ export default function App() {
     <Vault
       user={user}
       masterPassword={masterPassword}
+      needsHashMigration={unlockOptions.needsHashMigration}
       onLogout={() => { setMasterPassword(null); logout(); }}
-      onLock={() => setMasterPassword(null)}
+      onLock={() => { setUnlockOptions({}); setMasterPassword(null); }}
     />
   );
 }

@@ -2,8 +2,10 @@
 import {
   collection,
   addDoc,
+  getDoc,
   getDocs,
   doc,
+  setDoc,
   updateDoc,
   deleteDoc,
   query,
@@ -13,6 +15,21 @@ import { db } from "../firebase";
 
 const getUserCollection = (uid) =>
   collection(db, "users", uid, "accounts");
+
+const getUserDoc = (uid) => doc(db, "users", uid);
+
+export const getUserProfile = async (uid) => {
+  const snapshot = await getDoc(getUserDoc(uid));
+  return snapshot.exists() ? snapshot.data() : null;
+};
+
+export const saveMasterHash = async (uid, masterHash) => {
+  return await setDoc(
+    getUserDoc(uid),
+    { masterHash, masterHashUpdatedAt: Date.now() },
+    { merge: true }
+  );
+};
 
 export const addAccount = async (uid, data) => {
   const ref = getUserCollection(uid);

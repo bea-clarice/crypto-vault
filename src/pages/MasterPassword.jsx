@@ -1,13 +1,53 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, EyeOff, LogOut } from "lucide-react";
 import { hashMaster } from "../utils/crypto";
+import { getAccounts, getUserProfile, saveMasterHash } from "../utils/db";
 
 export default function MasterPassword({ user, onUnlock, onLogout }) {
   const [pass, setPass] = useState("");
   const [show, setShow] = useState(false);
   const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [storedHash, setStoredHash] = useState("");
+  const [hasCloudAccounts, setHasCloudAccounts] = useState(false);
   const HASH_KEY = `crypto_master_hash_${user.uid}`;
-  const isFirstTime = !localStorage.getItem(HASH_KEY);
+
+  useEffect(() => {
+    let alive = true;
+
+    const loadMasterState = async () => {
+      setLoading(true);
+      try {
+        const [profile, accounts] = await Promise.all([
+          getUserProfile(user.uid),
+          getAccounts(user.uid),
+        ]);
+        const localHash = localStorage.getItem(HASH_KEY) || "";
+        const cloudHash = profile?.masterHash || "";
+
+        if (!alive) return;
+        setHasCloudAccounts(accounts.length > 0);
+        setStoredHash(cloudHash || localHash);
+
+        if (localHash && !cloudHash) {
+          await saveMasterHash(user.uid, localHash);
+        }
+      } catch (e) {
+        console.error(e);
+        if (alive) setErr("Could not check your vault lock. Please try again.");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    };
+
+    loadMasterState();
+    return () => {
+      alive = false;
+    };
+  }, [HASH_KEY, user.uid]);
+
+  const isFirstTime = !storedHash && !hasCloudAccounts;
+  const needsLegacyUnlock = !storedHash && hasCloudAccounts;
 
   const strengthRules = [
     pass.length >= 12,
@@ -19,7 +59,7 @@ export default function MasterPassword({ user, onUnlock, onLogout }) {
   const strengthScore = strengthRules.filter(Boolean).length;
   const strongEnough = strengthScore >= 4;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!pass.trim()) return;
     if (isFirstTime && !strongEnough) {
@@ -27,18 +67,39 @@ export default function MasterPassword({ user, onUnlock, onLogout }) {
       return;
     }
 
-    const stored = localStorage.getItem(HASH_KEY);
     const hash = hashMaster(pass);
-    if (!stored) {
+    if (isFirstTime) {
       localStorage.setItem(HASH_KEY, hash);
-      onUnlock(pass);
-    } else if (stored === hash) {
-      onUnlock(pass);
+      await saveMasterHash(user.uid, hash);
+      onUnlock(pass, { needsHashMigration: false });
+      return;
+    }
+
+    if (needsLegacyUnlock) {
+      onUnlock(pass, { needsHashMigration: true });
+      return;
+    }
+
+    if (storedHash === hash) {
+      localStorage.setItem(HASH_KEY, hash);
+      onUnlock(pass, { needsHashMigration: false });
     } else {
-      setErr("Incorrect master password. Try again.");
+      setErr("Incorrect master password. Use the same master password from your other device.");
       setPass("");
     }
   };
+
+  if (loading) {
+    return (
+      <div className="loading-screen">
+        <img className="logo-image" src="/crypto-logo.svg" alt="CRYPTO" style={{width:52,height:52}} />
+        <div className="loading-dot-wrap">
+          <div className="loading-dot" /><div className="loading-dot" /><div className="loading-dot" />
+        </div>
+        <span className="loading-text">CHECKING VAULT LOCK...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="master-screen">
@@ -58,7 +119,9 @@ export default function MasterPassword({ user, onUnlock, onLogout }) {
         <p className="master-sub">
           {isFirstTime
             ? "Choose a strong master password. This encrypts all your data before sync. If you forget it, your vault cannot be recovered."
-            : `Welcome back, ${user.displayName?.split(" ")[0] || "agent"}. Enter your master password to decrypt your vault.`}
+            : needsLegacyUnlock
+              ? "Enter the original master password you used when these vault items were created. After a successful unlock, this device will sync the lock check for future logins."
+              : `Welcome back, ${user.displayName?.split(" ")[0] || "agent"}. Enter your master password to decrypt your vault.`}
         </p>
 
         {err && <p className="error-msg">{err}</p>}
