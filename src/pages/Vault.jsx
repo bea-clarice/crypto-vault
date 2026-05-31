@@ -25,6 +25,7 @@ const ENCRYPTED_FIELDS = [
   "appName",
   "notes",
 ];
+const APPLICATION_FILTER_FIELDS = ["mailProvider", "socialName", "eshopping", "game"];
 
 export default function Vault({ user, masterPassword, needsHashMigration, onLogout, onLock }) {
   const [accounts, setAccounts] = useState([]);
@@ -155,7 +156,10 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
 
   const applicationOptions = useMemo(() => {
     const names = new Set();
-    accounts.forEach((account) => names.add(getAccountTitle(account)));
+    accounts.forEach((account) => {
+      const appName = getApplicationFilterName(account);
+      if (appName) names.add(appName);
+    });
     return [...names].sort((a, b) => a.localeCompare(b));
   }, [accounts]);
 
@@ -171,7 +175,7 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
     const q = search.trim().toLowerCase();
     return accounts.filter((account) => {
       const matchCat = category === "All" || account.category === category;
-      const matchApplication = applicationFilter === "All" || getAccountTitle(account) === applicationFilter;
+      const matchApplication = applicationFilter === "All" || getApplicationFilterName(account) === applicationFilter;
       const haystack = [
         getAccountTitle(account),
         account.category,
@@ -465,4 +469,11 @@ function getLoadErrorMessage(error) {
     return "Vault sync is unavailable right now. Check your connection and try again.";
   }
   return "Could not sync your vault. Please try again.";
+}
+
+function getApplicationFilterName(account) {
+  for (const field of APPLICATION_FILTER_FIELDS) {
+    if (account[field]) return account[field];
+  }
+  return "";
 }
