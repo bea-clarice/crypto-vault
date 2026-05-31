@@ -18,6 +18,7 @@ const FIELD_SETS = {
     ["pin", "Pin", "PIN", "password"],
   ],
   Entertainment: [
+    ["appName", "App name", "Application name"],
     ["authenticatedEmail", "Connected Google mail", "", "emailSelect"],
     ["username", "Username", "Username"],
     ["password", "Password", "Password", "password"],

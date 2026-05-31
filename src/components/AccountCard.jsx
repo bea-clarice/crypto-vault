@@ -29,7 +29,7 @@ export const getAccountTitle = (account) => {
   if (account.category === "Gaming") return account.game || "Gaming account";
   if (account.category === "Other") return account.appName || "Other account";
   if (account.category === "Education") return account.username || "Education account";
-  if (account.category === "Entertainment") return account.username || account.authenticatedEmail || "Entertainment account";
+  if (account.category === "Entertainment") return account.appName || account.username || account.authenticatedEmail || "Entertainment account";
   return account.site || "Account";
 };
 
