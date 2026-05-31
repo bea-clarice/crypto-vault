@@ -95,15 +95,28 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
 
       payload.site = getAccountTitle({ ...form, category: payload.category });
 
+      const savedAccount = {
+        ...form,
+        category: payload.category,
+        site: payload.site,
+      };
+
       if (modal?.id) {
         await updateAccount(user.uid, modal.id, payload);
+        setDecryptError("");
+        setAccounts((current) =>
+          current.map((account) =>
+            account.id === modal.id ? { ...account, ...savedAccount, id: modal.id } : account
+          )
+        );
         setToast("Account updated");
       } else {
-        await addAccount(user.uid, payload);
+        const docRef = await addAccount(user.uid, payload);
+        setDecryptError("");
+        setAccounts((current) => [{ ...savedAccount, id: docRef.id, createdAt: Date.now() }, ...current]);
         setToast("Account added");
       }
       setModal(null);
-      await loadAccounts();
     } catch (e) {
       console.error(e);
       setToast("Save failed");
