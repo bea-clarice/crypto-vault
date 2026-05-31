@@ -32,6 +32,7 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
   const [decryptError, setDecryptError] = useState("");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
+  const [applicationFilter, setApplicationFilter] = useState("All");
   const [modal, setModal] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [selectedAccount, setSelectedAccount] = useState(null);
@@ -152,8 +153,14 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
       if (account.category === "Email" && account.email) emails.add(account.email);
       if (account.authenticatedEmail) emails.add(account.authenticatedEmail);
     });
-    return [...emails];
+    return [...emails].sort((a, b) => a.localeCompare(b));
   }, [accounts, user.email]);
+
+  const applicationOptions = useMemo(() => {
+    const names = new Set();
+    accounts.forEach((account) => names.add(getAccountTitle(account)));
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [accounts]);
 
   const catCounts = useMemo(() => {
     const counts = {};
@@ -167,21 +174,22 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
     const q = search.trim().toLowerCase();
     return accounts.filter((account) => {
       const matchCat = category === "All" || account.category === category;
+      const matchApplication = applicationFilter === "All" || getAccountTitle(account) === applicationFilter;
       const haystack = [
         getAccountTitle(account),
         account.category,
         ...ENCRYPTED_FIELDS.map((field) => account[field]),
       ].filter(Boolean).join(" ").toLowerCase();
-      return matchCat && (!q || haystack.includes(q));
-    });
-  }, [accounts, search, category]);
+      return matchCat && matchApplication && (!q || haystack.includes(q));
+    }).sort((a, b) => getAccountTitle(a).localeCompare(getAccountTitle(b)));
+  }, [accounts, search, category, applicationFilter]);
 
   const totalEmailAccounts = accounts.filter((account) => account.category === "Email").length;
   const selectedEmailDetails = useMemo(() => {
     if (!selectedEmail) return [];
     return accounts.filter((account) => {
       return account.email === selectedEmail || account.authenticatedEmail === selectedEmail;
-    });
+    }).sort((a, b) => getAccountTitle(a).localeCompare(getAccountTitle(b)));
   }, [accounts, selectedEmail]);
 
   return (
@@ -237,7 +245,7 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
           </div>
           <div className="profile-side">
             <div className="profile-actions">
-              <button className="btn-ghost" type="button" onClick={() => setEmailModalOpen(true)}>
+              <button className="btn-ghost" type="button" onClick={() => { setSelectedEmail(""); setEmailModalOpen(true); }}>
                 All Emails
               </button>
               <button className="btn-ghost" type="button" onClick={onLock}>
@@ -267,6 +275,21 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
             <Plus size={15} />
             <span>Add Account</span>
           </button>
+        </div>
+
+        <div className="filter-row">
+          <label className="input-label" htmlFor="application-filter">Application</label>
+          <select
+            id="application-filter"
+            className="select-field application-filter"
+            value={applicationFilter}
+            onChange={(e) => setApplicationFilter(e.target.value)}
+          >
+            <option value="All">All applications</option>
+            {applicationOptions.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
         </div>
 
         <div className="category-tabs">
@@ -329,40 +352,43 @@ export default function Vault({ user, masterPassword, needsHashMigration, onLogo
         <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setEmailModalOpen(false)}>
           <div className="modal detail-modal">
             <div className="modal-header">
-              <h3 className="modal-title">All Emails</h3>
-              <button className="modal-close" onClick={() => setEmailModalOpen(false)}>x</button>
+              <h3 className="modal-title">{selectedEmail ? selectedEmail : "All Emails"}</h3>
+              <button className="modal-close" onClick={() => { setEmailModalOpen(false); setSelectedEmail(""); }}>x</button>
             </div>
-            <div className="email-list">
-              {emailOptions.length === 0 ? (
-                <p className="empty-sub">No email accounts saved yet.</p>
-              ) : (
-                emailOptions.map((email) => (
-                  <button
-                    className={`email-row ${selectedEmail === email ? "active" : ""}`}
-                    key={email}
-                    onClick={() => setSelectedEmail(email)}
-                  >
-                    {email}
-                  </button>
-                ))
-              )}
-            </div>
-            {selectedEmail && (
+            {!selectedEmail ? (
+              <div className="email-list">
+                {emailOptions.length === 0 ? (
+                  <p className="empty-sub">No email accounts saved yet.</p>
+                ) : (
+                  emailOptions.map((email) => (
+                    <button
+                      className="email-row"
+                      key={email}
+                      onClick={() => setSelectedEmail(email)}
+                    >
+                      {email}
+                    </button>
+                  ))
+                )}
+              </div>
+            ) : (
               <div className="detail-section">
                 <span className="detail-kicker">Email Details</span>
-                <h4>{selectedEmail}</h4>
                 {selectedEmailDetails.length === 0 ? (
                   <p className="empty-sub">No connected account details for this email.</p>
                 ) : (
                   <div className="detail-list">
                     {selectedEmailDetails.map((account) => (
-                      <button className="detail-row" key={account.id} onClick={() => setSelectedAccount(account)}>
+                      <button className="detail-row" key={account.id} onClick={() => { setEmailModalOpen(false); setSelectedEmail(""); setSelectedAccount(account); }}>
                         <span>{getAccountTitle(account)}</span>
                         <small>{account.category}</small>
                       </button>
                     ))}
                   </div>
                 )}
+                <div className="modal-footer">
+                  <button className="btn-ghost" type="button" onClick={() => setSelectedEmail("")}>Back to Emails</button>
+                </div>
               </div>
             )}
           </div>

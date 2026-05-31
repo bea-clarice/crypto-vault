@@ -82,7 +82,8 @@ export default function AccountModal({ account, emailOptions, onSave, onClose })
   }, [account]);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const currentFields = FIELD_SETS[form.category] || FIELD_SETS.Other;
+  const currentFields = [...(FIELD_SETS[form.category] || FIELD_SETS.Other)]
+    .sort((a, b) => a[1].localeCompare(b[1]));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
