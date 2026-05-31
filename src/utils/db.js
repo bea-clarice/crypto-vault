@@ -16,16 +16,16 @@ import { db } from "../firebase";
 const getUserCollection = (uid) =>
   collection(db, "users", uid, "accounts");
 
-const getUserDoc = (uid) => doc(db, "users", uid);
+const MASTER_META_ID = "__vault_meta";
 
 export const getUserProfile = async (uid) => {
-  const snapshot = await getDoc(getUserDoc(uid));
+  const snapshot = await getDoc(doc(db, "users", uid, "accounts", MASTER_META_ID));
   return snapshot.exists() ? snapshot.data() : null;
 };
 
 export const saveMasterHash = async (uid, masterHash) => {
   return await setDoc(
-    getUserDoc(uid),
+    doc(db, "users", uid, "accounts", MASTER_META_ID),
     { masterHash, masterHashUpdatedAt: Date.now() },
     { merge: true }
   );
@@ -40,7 +40,9 @@ export const getAccounts = async (uid) => {
   const ref = getUserCollection(uid);
   const q = query(ref, orderBy("createdAt", "desc"));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  return snapshot.docs
+    .filter((d) => d.id !== MASTER_META_ID)
+    .map((d) => ({ id: d.id, ...d.data() }));
 };
 
 export const updateAccount = async (uid, accountId, data) => {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { LogOut, Plus, Search, ShieldCheck, Lock } from "lucide-react";
-import { encrypt, decrypt } from "../utils/crypto";
-import { addAccount, getAccounts, updateAccount, deleteAccount } from "../utils/db";
+import { encrypt, decrypt, hashMaster } from "../utils/crypto";
+import { addAccount, getAccounts, updateAccount, deleteAccount, saveMasterHash } from "../utils/db";
 import AccountCard, { getAccountTitle } from "../components/AccountCard";
 import AccountModal from "../components/AccountModal";
 import Toast from "../components/Toast";
@@ -26,9 +26,10 @@ const ENCRYPTED_FIELDS = [
   "notes",
 ];
 
-export default function Vault({ user, masterPassword, onLogout, onLock }) {
+export default function Vault({ user, masterPassword, needsHashMigration, onLogout, onLock }) {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [decryptError, setDecryptError] = useState("");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [modal, setModal] = useState(null);
@@ -42,20 +43,41 @@ export default function Vault({ user, masterPassword, onLogout, onLock }) {
 
   const loadAccounts = async () => {
     setLoading(true);
+    setDecryptError("");
     try {
       const raw = await getAccounts(user.uid);
+      let failed = false;
       const decrypted = raw.map((account) => {
         const next = { ...account };
         ENCRYPTED_FIELDS.forEach((field) => {
-          next[field] = account[field] ? decrypt(account[field], masterPassword) || account[field] : "";
+          if (!account[field]) {
+            next[field] = "";
+            return;
+          }
+
+          const value = decrypt(account[field], masterPassword);
+          if (value === null) failed = true;
+          next[field] = value || "";
         });
         next.category = CATEGORIES.includes(next.category) ? next.category : normalizeLegacyCategory(next.category);
         next.site = account.site || "";
         return next;
       });
+
+      if (failed) {
+        setAccounts([]);
+        setDecryptError("That master password could not decrypt this vault. Lock the vault and enter the original master password used on your other device.");
+        return;
+      }
+
+      if (needsHashMigration) {
+        await saveMasterHash(user.uid, hashMaster(masterPassword));
+      }
+
       setAccounts(decrypted);
     } catch (e) {
       console.error(e);
+      setDecryptError("Could not load your vault. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -243,7 +265,14 @@ export default function Vault({ user, masterPassword, onLogout, onLock }) {
           </div>
         ) : (
           <div className="accounts-grid">
-            {filtered.length === 0 ? (
+            {decryptError ? (
+              <div className="empty-state vault-error-state">
+                <div className="empty-icon"><Lock size={24} /></div>
+                <p className="empty-title">Vault locked</p>
+                <p className="empty-sub">{decryptError}</p>
+                <button className="btn-primary" type="button" onClick={onLock}>Lock Vault</button>
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-icon"><ShieldCheck size={24} /></div>
                 <p className="empty-title">{search || category !== "All" ? "No results found" : "Your vault is empty"}</p>

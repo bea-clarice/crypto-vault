@@ -61,6 +61,7 @@ export default function MasterPassword({ user, onUnlock, onLogout }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setErr("");
     if (!pass.trim()) return;
     if (isFirstTime && !strongEnough) {
       setErr("Use a stronger master password before creating the vault.");
@@ -69,9 +70,14 @@ export default function MasterPassword({ user, onUnlock, onLogout }) {
 
     const hash = hashMaster(pass);
     if (isFirstTime) {
-      localStorage.setItem(HASH_KEY, hash);
-      await saveMasterHash(user.uid, hash);
-      onUnlock(pass, { needsHashMigration: false });
+      try {
+        localStorage.setItem(HASH_KEY, hash);
+        await saveMasterHash(user.uid, hash);
+        onUnlock(pass, { needsHashMigration: false });
+      } catch (e) {
+        console.error(e);
+        setErr("Could not create the vault lock. Please check your connection and try again.");
+      }
       return;
     }
 
